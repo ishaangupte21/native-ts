@@ -1,5 +1,3 @@
 #include <iostream>
 
-int main() {
-    std::cout << "testing build system\n";
-}
+int main() { std::cout << "testing build system\n"; }
