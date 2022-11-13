@@ -73,9 +73,19 @@ enum class TokenKind {
     QuestionQuestionEquals,
 
     // Literals
+    // We will add these special zero literals to eliminate the need for parsing
+    // the value.
+    ZeroLiteral,
+    ZeroBigIntLiteral,
     DecimalLiteral,
     DecimalBigIntLiteral,
     FloatLiteral,
+    HexLiteral,
+    HexBigIntLiteral,
+    OctalLiteral,
+    OctalBigIntLiteral,
+    BinaryLiteral,
+    BinaryBigIntLiteral,
 };
 
 struct Token {

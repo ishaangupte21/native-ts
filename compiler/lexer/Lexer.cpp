@@ -1,5 +1,6 @@
 #include "Lexer.h"
 #include "Token.h"
+#include "UserOpts.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -61,10 +62,26 @@ auto Lexer::diagnoseInvalidNumericSeparator() -> void {
     llvm::errs() << llvm::raw_ostream::Colors::RED
                  << "error: " << llvm::raw_ostream::Colors::WHITE << filePath
                  << ": " << line << ":" << ++col
-                 << ": expected digit after numeric separator\n";
+                 << ": expected digit after numeric separator but found '"
+                 << ptr[0] << "' instead\n";
     lexerFailed = true;
 
     // We don't need to move the pointer forward here.
+}
+
+// This is the implementation of the method to diagnose a lexical error when a
+// Numeric Base specifier is not followed by a valid digit from that base.
+auto Lexer::diagnoseMalformedRadixInt(const char type[], const char prefix[])
+    -> void {
+    llvm::errs() << llvm::raw_ostream::Colors::RED
+                 << "error: " << llvm::raw_ostream::Colors::WHITE << filePath
+                 << ": " << line << ":" << col << ": expected " << type
+                 << " digit after prefix '" << prefix << "' but found '"
+                 << ptr[0] << "' instead\n";
+    lexerFailed = true;
+
+    // Since this is the end of the literal, we don't need to move the pointer
+    // forward.
 }
 
 // This is the implementation of the main Lexer routine. The goal is to scan the
@@ -490,6 +507,55 @@ beginLexer:
     case '9':
         lexNumericLiteral(tok, afterLineTerminator);
         return;
+
+    case '0':
+        switch (ptr[1]) {
+        case '.':
+            lexFloatLiteral(tok, ptr, col, afterLineTerminator);
+            return;
+        // Hex Literal
+        case 'x':
+        case 'X':
+            lexHexNumericLiteral(tok, afterLineTerminator);
+            return;
+
+        // Octal Literal
+        case 'O':
+        case 'o':
+            lexOctalNumericLiteral(tok, afterLineTerminator);
+            return;
+
+        // Binary Literal
+        case 'b':
+        case 'B':
+            lexBinaryNumericLiteral(tok, afterLineTerminator);
+            return;
+
+        // Zero BigInt literal
+        case 'n':
+            tok.set(TokenKind::ZeroBigIntLiteral, line, col,
+                    afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+
+        // Legacy Octal Literals
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+            lexLegacyOctalLiteral(tok, afterLineTerminator);
+            return;
+
+        default:
+            // Simple Zero Literal
+            tok.set(TokenKind::ZeroLiteral, line, col, afterLineTerminator);
+            return;
+        }
     }
 }
 
@@ -649,6 +715,8 @@ auto Lexer::lexMultiLineComment(Token &tok, bool &afterLineTerminator) -> bool {
 }
 
 #define isDigit(x) ((static_cast<uint32_t>(x) - '0') < 10)
+#define isOctalDigit(x) ((static_cast<uint32_t>(x) - '0') < 8)
+#define isBinaryDigit(x) (x == '0' || x == '1')
 #define SIZE_T(x) (static_cast<size_t>(x))
 
 // This is the implementation of the method which will scan numeric literals.
@@ -793,6 +861,301 @@ auto Lexer::lexFloatLiteral(Token &tok, char *startPtr, int startCol,
             // For all other characters, we will end the Float literal.
             tok.set(TokenKind::FloatLiteral, line, startCol,
                     afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            return;
+        }
+    }
+}
+
+// This is the implementation of the method that will scan Hexadecimal Numeric
+// literals. It will consume all valid Hex Digits and numeric separators. If a
+// bigint suffix is found, it will return a BigInt literal.
+auto Lexer::lexHexNumericLiteral(Token &tok, bool afterLineTerminator) -> void {
+    // Since the prefix cannot be part of the Token lexeme, we must consume it.
+    auto startCol = col;
+    ptr += 2;
+    col += 2;
+    auto *startPtr = ptr;
+
+    // The next character must be a Hex Digit
+    if (!isHexDigit(ptr[0])) {
+        diagnoseMalformedRadixInt("hexadecimal", "0x");
+
+        // For placeholder purposes, we will return a zero literal.
+        tok.set(TokenKind::ZeroLiteral, line, startCol, afterLineTerminator);
+        return;
+    }
+
+    // Since we have one hex digit for sure, we can consume it.
+    ++ptr;
+    ++col;
+
+    // Now, we can consume all hex digits and numeric separators.
+    while (true) {
+        switch (ptr[0]) {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+        case 'a':
+        case 'b':
+        case 'c':
+        case 'd':
+        case 'e':
+        case 'f':
+        case 'A':
+        case 'B':
+        case 'C':
+        case 'D':
+        case 'E':
+        case 'F':
+            ++ptr;
+            ++col;
+            continue;
+        case '_':
+            // We must check if the numeric separator is followed by a valid Hex
+            // Digit.
+            if (!isHexDigit(ptr[1])) {
+                diagnoseInvalidNumericSeparator();
+
+                // Now, we must mark this as the end of the literal. The
+                // underscore will be ommited from the literal text.
+                tok.set(TokenKind::HexLiteral, line, startCol,
+                        afterLineTerminator,
+                        {startPtr, SIZE_T(ptr - startPtr)});
+                // Finally, we need to consume the underscore
+                ++ptr;
+                ++col;
+                return;
+            }
+
+            // If there is a hex digit, we have pre-scanned it and we can
+            // consume it.
+            ptr += 2;
+            col += 2;
+            continue;
+        case 'n':
+            // Big Int literal suffix
+            tok.set(TokenKind::HexBigIntLiteral, line, startCol,
+                    // The BigInt suffix must be ommited  from the token lexeme.
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            // We also need to consume the big int suffix
+            ++ptr;
+            ++col;
+            return;
+        default:
+            // For all other characters, we will mark it as the end for Integer
+            // Literals.
+            tok.set(TokenKind::HexLiteral, line, startCol, afterLineTerminator,
+                    {startPtr, SIZE_T(ptr - startPtr)});
+            return;
+        }
+    }
+}
+
+// This is the implementation of the method to scan Octal Numeric Literals. We
+// must consume all valid Octal Digits, Numeric Separators, and the Big Int
+// suffix.
+auto Lexer::lexOctalNumericLiteral(Token &tok, bool afterLineTerminator)
+    -> void {
+    // First, we need to consume the prefix.
+    auto startCol = col;
+    ptr += 2;
+    col += 2;
+    auto *startPtr = ptr;
+
+    // The first digit must be a valid octal digit.
+    if (!isOctalDigit(ptr[0])) {
+        diagnoseMalformedRadixInt("octal", "0o");
+
+        // As a placeholder, we will return the zero literal.
+        tok.set(TokenKind::ZeroLiteral, line, startCol, afterLineTerminator);
+        return;
+    }
+
+    // We have one octal digit for sure, so we can consume it.
+    ++ptr;
+    ++col;
+
+    // Now, we need to consume all hex digits and seperators.
+    while (true) {
+        switch (ptr[0]) {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+            ++ptr;
+            ++col;
+            continue;
+        case '_':
+            // Numeric Separator must be followed by an octal digit.
+            if (!isOctalDigit(ptr[1])) {
+                diagnoseInvalidNumericSeparator();
+
+                tok.set(TokenKind::OctalLiteral, line, startCol,
+                        afterLineTerminator,
+                        {startPtr, SIZE_T(ptr - startPtr)});
+                // Consume underscore
+                ++ptr;
+                ++col;
+                return;
+            }
+
+            // We have a valid octal digit for sure, so consume both.
+            ptr += 2;
+            col += 2;
+            continue;
+        case 'n':
+            // Big Int suffix
+            tok.set(TokenKind::OctalBigIntLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            // Consume suffix
+            ++ptr;
+            ++col;
+            return;
+        default:
+            // End of the literal.
+            tok.set(TokenKind::OctalLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            return;
+        }
+    }
+}
+
+// This is the implementation of the method to scan Binary Numeric Literals. It
+// will consume all binary digits, numeric separators, and the bigint suffix.
+auto Lexer::lexBinaryNumericLiteral(Token &tok, bool afterLineTerminator)
+    -> void {
+    // First, we need to consume the prefix.
+    auto startCol = col;
+    ptr += 2;
+    col += 2;
+    auto *startPtr = ptr;
+
+    // The first character must be a binary digit.
+    if (!isBinaryDigit(ptr[0])) {
+        diagnoseMalformedRadixInt("binary", "0b");
+
+        // Placeholder 0 literal.
+        tok.set(TokenKind::ZeroLiteral, line, startCol, afterLineTerminator);
+        return;
+    }
+
+    // We know there is a binary digit, so we can consume it.
+    ++ptr;
+    ++col;
+
+    // Now we need to consume all digits and separators.
+    while (true) {
+        switch (ptr[0]) {
+        case '0':
+        case '1':
+            ++ptr;
+            ++col;
+            continue;
+        case '_':
+            // Numeric separators must be followed by a binary digit.
+            if (!isBinaryDigit(ptr[1])) {
+                diagnoseInvalidNumericSeparator();
+
+                tok.set(TokenKind::BinaryLiteral, line, startCol,
+                        afterLineTerminator,
+                        {startPtr, SIZE_T(ptr - startPtr)});
+                // Consume underscore
+                ++ptr;
+                ++col;
+                return;
+            }
+
+            // We have 2 valid characters, so we can consume both.
+            ptr += 2;
+            col += 2;
+            continue;
+        case 'n':
+            // BigInt literal
+            tok.set(TokenKind::BinaryBigIntLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            // Consume suffix
+            ++ptr;
+            ++col;
+            return;
+        default:
+            // End of the regular binary literal.
+            tok.set(TokenKind::BinaryLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            return;
+        }
+    }
+}
+
+// This is the implementation of the method to scan Legacy Octal Literals. At
+// the end we must check if strict mode is enabled. If it is, using this literal
+// will be an error.
+auto Lexer::lexLegacyOctalLiteral(Token &tok, bool afterLineTerminator)
+    -> void {
+    // First, we need to move the column ahead for the prefix.
+    auto *startPtr = ++ptr;
+    auto startCol = col;
+
+    // Since we have an octal digit for sure, we can consume it.
+    ++ptr;
+    col += 2;
+
+    // Now, we need to consume all octal digits and numeric separatators.
+    while (true) {
+        switch (ptr[0]) {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+            ++ptr;
+            ++col;
+            continue;
+        case '_':
+            // Numeric Separator must be followed by an octal digit.
+            if (!isOctalDigit(ptr[1])) {
+                diagnoseInvalidNumericSeparator();
+
+                tok.set(TokenKind::OctalLiteral, line, startCol,
+                        afterLineTerminator,
+                        {startPtr, SIZE_T(ptr - startPtr)});
+                // Consume underscore
+                ++ptr;
+                ++col;
+                return;
+            }
+
+            // We have a valid octal digit for sure, so consume both.
+            ptr += 2;
+            col += 2;
+            continue;
+        // Legacy literals cannot have the bigint suffix.
+        default:
+            tok.set(TokenKind::OctalLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            // Here, we must check if Strict mode is enabled.
+            if (UserOpts::strictModeEnabled) {
+                llvm::errs() << llvm::raw_ostream::Colors::RED
+                             << "error: " << llvm::raw_ostream::Colors::WHITE
+                             << filePath << ": " << line << ":" << startCol
+                             << ": legacy octal literals are not permitted in "
+                                "strict mode. Consider using the prefix '0o' "
+                                "or pass the argument '-no-strict-mode'\n";
+                lexerFailed = true;
+            }
             return;
         }
     }

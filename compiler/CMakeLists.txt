@@ -13,6 +13,11 @@ target_include_directories(ntsc PUBLIC
     "${CMAKE_BINARY_DIR}/lexer"
 )
 
+target_include_directories(lexer PUBLIC
+    "${CMAKE_SOURCE_DIR}/frontend"
+    "${CMAKE_BINARY_DIR}/frontend"
+)
+
 target_link_libraries(ntsc PUBLIC
     LLVM
     lexer

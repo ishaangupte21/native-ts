@@ -27,4 +27,5 @@ auto main(int argc, char **argv) -> int {
     lexer.lexToken(tok);
 
     llvm::outs() << "Token: " << static_cast<int>(tok.kind) << '\n';
+    llvm::outs() << "text: " << tok.text << '\n';
 }

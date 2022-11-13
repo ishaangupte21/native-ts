@@ -1,6 +1,7 @@
 #ifndef NTSC_LEXER_H
 #define NTSC_LEXER_H
 #include "Token.h"
+#include <cstdint>
 
 /*
     This file defines the Lexer interface for scanning TypeScript source files.
@@ -36,6 +37,13 @@ class Lexer {
         return static_cast<uint8_t>(c) < 0x80;
     }
 
+    // This method will determine whether the given character is a valid
+    // Hexadecimal Digit.
+    [[nodiscard]] static inline auto isHexDigit(char c) -> bool const {
+        uint8_t decimalPart = c - '0', hexPart = (c | 0x20) - 'a';
+        return decimalPart <= 9 || hexPart <= 5;
+    }
+
     // This method will scan Single Line comments from the source code
     [[nodiscard]] inline auto lexSingleLineComment(Token &tok,
                                                    bool afterLineTerminator)
@@ -55,6 +63,22 @@ class Lexer {
     inline auto lexFloatLiteral(Token &tok, char *startPtr, int startCol,
                                 bool afterLineTerminator) -> void;
 
+    // This method will scan Hexadecimal numeric literals.
+    inline auto lexHexNumericLiteral(Token &tok, bool afterLineTerminator)
+        -> void;
+
+    // This method will scan Octal numeric literals.
+    inline auto lexOctalNumericLiteral(Token &tok, bool afterLineTerminator)
+        -> void;
+
+    // This method will scan Binary numeric literals.
+    inline auto lexBinaryNumericLiteral(Token &tok, bool afterLineTerminator)
+        -> void;
+
+    // This method will scan legacy Octal numeric literals
+    inline auto lexLegacyOctalLiteral(Token &tok, bool afterLineTerminator)
+        -> void;
+
     // This method will diagnose errors related to unexpected null characters.
     // Since it will only be used locally in Lexer.cpp, the definition can be
     // done there.
@@ -68,6 +92,11 @@ class Lexer {
     // This method will diagnose errors in the source when numeric seperators
     // are not followed by valid digits.
     inline auto diagnoseInvalidNumericSeparator() -> void;
+
+    // This method will diagnose errors when a Numeric Base prefix is not
+    // followed by a valid digit from that base.
+    inline auto diagnoseMalformedRadixInt(const char type[],
+                                          const char prefix[]) -> void;
 
   public:
     // This constructor will be used to instantiate Lexer instances with a start
