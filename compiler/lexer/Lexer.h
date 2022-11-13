@@ -46,6 +46,15 @@ class Lexer {
                                                   bool &afterLineTerminator)
         -> bool;
 
+    // This method will scan Numeric Literals from the source code. It will
+    // begin with basic integer literals and then fork towards floating point
+    // and big integer literals as needed.
+    inline auto lexNumericLiteral(Token &tok, bool afterLineTerminator) -> void;
+
+    // This method will scan Floating Point Literals after the floating point.
+    inline auto lexFloatLiteral(Token &tok, char *startPtr, int startCol,
+                                bool afterLineTerminator) -> void;
+
     // This method will diagnose errors related to unexpected null characters.
     // Since it will only be used locally in Lexer.cpp, the definition can be
     // done there.
@@ -55,6 +64,10 @@ class Lexer {
     // will be called when the LLVM conversion function fails. It will be
     // defined locally in Lexer.cpp.
     inline auto diagnoseInvalidUTF8() -> void;
+
+    // This method will diagnose errors in the source when numeric seperators
+    // are not followed by valid digits.
+    inline auto diagnoseInvalidNumericSeparator() -> void;
 
   public:
     // This constructor will be used to instantiate Lexer instances with a start

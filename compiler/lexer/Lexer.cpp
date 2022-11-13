@@ -55,6 +55,18 @@ auto Lexer::diagnoseInvalidUTF8() -> void {
     // character!
 }
 
+// This is the implementation of the function to diagnose lexical errors when a
+// numeric separator is not followed by a valid digit.
+auto Lexer::diagnoseInvalidNumericSeparator() -> void {
+    llvm::errs() << llvm::raw_ostream::Colors::RED
+                 << "error: " << llvm::raw_ostream::Colors::WHITE << filePath
+                 << ": " << line << ":" << ++col
+                 << ": expected digit after numeric separator\n";
+    lexerFailed = true;
+
+    // We don't need to move the pointer forward here.
+}
+
 // This is the implementation of the main Lexer routine. The goal is to scan the
 // token and mutate the Token instance as quickly as possible.
 // Since most code is unlikely to use Unicode codepoints, we will optimize the
@@ -359,112 +371,125 @@ beginLexer:
             tok.set(TokenKind::Slash, line, col++, afterLineTerminator);
             ++ptr;
             return;
-        case '%':
-            if (ptr[1] == '=') {
-                tok.set(TokenKind::PercentEquals, line, col,
-                        afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-
-            tok.set(TokenKind::Percent, line, col++, afterLineTerminator);
-            ++ptr;
-            return;
-        case '&':
-            if (ptr[1] == '=') {
-                tok.set(TokenKind::AmpersandEquals, line, col,
-                        afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-            if (ptr[1] == '&') {
-                if (ptr[2] == '=') {
-                    tok.set(TokenKind::AmpersandAmpersandEquals, line, col,
-                            afterLineTerminator);
-                    ptr += 3;
-                    col += 3;
-                    return;
-                }
-
-                tok.set(TokenKind::AmpersandAmpersand, line, col,
-                        afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-
-            tok.set(TokenKind::Ampersand, line, col++, afterLineTerminator);
-            ++ptr;
-            return;
-        case '|':
-            if (ptr[1] == '=') {
-                tok.set(TokenKind::BarEquals, line, col, afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-            if (ptr[1] == '|') {
-                if (ptr[2] == '=') {
-                    tok.set(TokenKind::BarBarEquals, line, col,
-                            afterLineTerminator);
-                    ptr += 3;
-                    col += 3;
-                    return;
-                }
-
-                tok.set(TokenKind::BarBar, line, col, afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-
-            tok.set(TokenKind::Bar, line, col++, afterLineTerminator);
-            ++ptr;
-            return;
-        case '^':
-            if (ptr[1] == '=') {
-                tok.set(TokenKind::CaretEquals, line, col, afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-
-            tok.set(TokenKind::Caret, line, col++, afterLineTerminator);
-            ++ptr;
-            return;
-        case '~':
-            tok.set(TokenKind::Tilde, line, col++, afterLineTerminator);
-            ++ptr;
-            return;
-        case '?':
-            if (ptr[1] == '?') {
-                if (ptr[2] == '=') {
-                    tok.set(TokenKind::QuestionQuestionEquals, line, col,
-                            afterLineTerminator);
-                    ptr += 3;
-                    col += 3;
-                    return;
-                }
-
-                tok.set(TokenKind::QuestionQuestion, line, col,
-                        afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-            if (ptr[1] == '.') {
-                tok.set(TokenKind::QuestionDot, line, col, afterLineTerminator);
-                ptr += 2;
-                col += 2;
-                return;
-            }
-
-            tok.set(TokenKind::Question, line, col++, afterLineTerminator);
-            ++col;
+        }
+    case '%':
+        if (ptr[1] == '=') {
+            tok.set(TokenKind::PercentEquals, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
             return;
         }
+
+        tok.set(TokenKind::Percent, line, col++, afterLineTerminator);
+        ++ptr;
+        return;
+    case '&':
+        if (ptr[1] == '=') {
+            tok.set(TokenKind::AmpersandEquals, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+        if (ptr[1] == '&') {
+            if (ptr[2] == '=') {
+                tok.set(TokenKind::AmpersandAmpersandEquals, line, col,
+                        afterLineTerminator);
+                ptr += 3;
+                col += 3;
+                return;
+            }
+
+            tok.set(TokenKind::AmpersandAmpersand, line, col,
+                    afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+
+        tok.set(TokenKind::Ampersand, line, col++, afterLineTerminator);
+        ++ptr;
+        return;
+    case '|':
+        if (ptr[1] == '=') {
+            tok.set(TokenKind::BarEquals, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+        if (ptr[1] == '|') {
+            if (ptr[2] == '=') {
+                tok.set(TokenKind::BarBarEquals, line, col,
+                        afterLineTerminator);
+                ptr += 3;
+                col += 3;
+                return;
+            }
+
+            tok.set(TokenKind::BarBar, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+
+        tok.set(TokenKind::Bar, line, col++, afterLineTerminator);
+        ++ptr;
+        return;
+    case '^':
+        if (ptr[1] == '=') {
+            tok.set(TokenKind::CaretEquals, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+
+        tok.set(TokenKind::Caret, line, col++, afterLineTerminator);
+        ++ptr;
+        return;
+    case '~':
+        tok.set(TokenKind::Tilde, line, col++, afterLineTerminator);
+        ++ptr;
+        return;
+    case '?':
+        if (ptr[1] == '?') {
+            if (ptr[2] == '=') {
+                tok.set(TokenKind::QuestionQuestionEquals, line, col,
+                        afterLineTerminator);
+                ptr += 3;
+                col += 3;
+                return;
+            }
+
+            tok.set(TokenKind::QuestionQuestion, line, col,
+                    afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+        if (ptr[1] == '.') {
+            tok.set(TokenKind::QuestionDot, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+
+        tok.set(TokenKind::Question, line, col++, afterLineTerminator);
+        ++col;
+        return;
+
+    // Next, we will scan literals. We will begin with numeric literals.
+    // '0' is the special literal character, so it has to be dealt with
+    // separately.
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+        lexNumericLiteral(tok, afterLineTerminator);
+        return;
     }
 }
 
@@ -619,6 +644,156 @@ auto Lexer::lexMultiLineComment(Token &tok, bool &afterLineTerminator) -> bool {
             // The Unicode Decoding has moved the pointer, so we only need
             // to move the column.
             ++col;
+        }
+    }
+}
+
+#define isDigit(x) ((static_cast<uint32_t>(x) - '0') < 10)
+#define SIZE_T(x) (static_cast<size_t>(x))
+
+// This is the implementation of the method which will scan numeric literals.
+// The basic idea is to begin with simple integer literals and then if a
+// floating point is found, we will fork to a floating point literal.
+auto Lexer::lexNumericLiteral(Token &tok, bool afterLineTerminator) -> void {
+    // Since we have already scanned the previous character, we can set the
+    // start pointer and column to this position and then move forward.
+    auto *startPtr = ptr++;
+    auto startCol = col++;
+
+    // All digits and numeric separators (underscores) will be part of the
+    // current literal.
+    while (true) {
+        switch (ptr[0]) {
+        // If we find a digit, we can just move forward.
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            ++ptr;
+            ++col;
+            continue;
+        case '_':
+            // If we find a Numeric Separator, it must be followed by a digit
+            // according to the TypeScript standard.
+            if (!isDigit(ptr[1])) {
+                diagnoseInvalidNumericSeparator();
+                // Since this is the end of the separator, we must end the
+                // literal here. The placeholder literal, however, will not
+                // contain the underscore.
+                tok.set(TokenKind::DecimalLiteral, line, startCol,
+                        afterLineTerminator,
+                        {startPtr, SIZE_T(ptr - startPtr)});
+                // Also, we need to consume the underscore.
+                ++ptr;
+                return;
+            }
+
+            // If we find a digit, we can just consume both the underscore and
+            // the digit.
+            ptr += 2;
+            col += 2;
+            continue;
+        case 'n':
+            // This is the delimeter for a BigInt literal.
+            tok.set(TokenKind::DecimalBigIntLiteral, line, startCol,
+                    // Here, we will actually omit the BigInt suffix from the
+                    // Token lexeme to simplify the Integer parsing.
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            // We also need to consume the BigInt suffix.
+            ++ptr;
+            ++col;
+            return;
+        case '.':
+            // Here, we need to fork the routine to scan Floating Point
+            // literals.
+            lexFloatLiteral(tok, startPtr, startCol, afterLineTerminator);
+            return;
+        default:
+            // For all other characters, we can simply end the integer literal.
+            tok.set(TokenKind::DecimalLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            return;
+        }
+    }
+}
+
+// This method is a fork from the primary lexNumericLiteral method to scan the
+// back half of floating point literals.
+auto Lexer::lexFloatLiteral(Token &tok, char *startPtr, int startCol,
+                            bool afterLineTerminator) -> void {
+    // First, we must consume the floating point and all of the optional digits.
+    do {
+        ++ptr;
+        ++col;
+    } while (isDigit(ptr[0]));
+
+    // After, we need to scan the exponent portion.
+    // If the current character is not an exponent prefix, we can end the
+    // literal here.
+    if (ptr[0] != 'e' && ptr[0] != 'E') {
+        tok.set(TokenKind::FloatLiteral, line, startCol, afterLineTerminator,
+                {startPtr, SIZE_T(ptr - startPtr)});
+        return;
+    }
+
+    // We can also check for the exponent sign here and consume it if it exists.
+    if (ptr[1] == '+' || ptr[1] == '-') {
+        ptr += 2;
+        col += 2;
+    } else {
+        ++ptr;
+        ++col;
+    }
+
+    // Lastly, we need to consume the actual exponent, which is consists of
+    // digits and numeric separators.
+    while (true) {
+        switch (ptr[0]) {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            ++ptr;
+            ++col;
+            continue;
+        case '_':
+            // If we find a Numeric Separator, it must be followed by a digit
+            // according to the TypeScript standard.
+            if (!isDigit(ptr[1])) {
+                diagnoseInvalidNumericSeparator();
+                // Since this is the end of the separator, we must end the
+                // literal here. The placeholder literal, however, will not
+                // contain the underscore.
+                tok.set(TokenKind::FloatLiteral, line, startCol,
+                        afterLineTerminator,
+                        {startPtr, SIZE_T(ptr - startPtr)});
+                // Also, we need to consume the underscore.
+                ++ptr;
+                return;
+            }
+
+            // If we find a digit, we can just consume both the underscore and
+            // the digit.
+            ptr += 2;
+            col += 2;
+            continue;
+        default:
+            // For all other characters, we will end the Float literal.
+            tok.set(TokenKind::FloatLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+            return;
         }
     }
 }

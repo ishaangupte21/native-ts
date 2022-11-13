@@ -72,6 +72,10 @@ enum class TokenKind {
     AmpersandAmpersandEquals,
     QuestionQuestionEquals,
 
+    // Literals
+    DecimalLiteral,
+    DecimalBigIntLiteral,
+    FloatLiteral,
 };
 
 struct Token {
