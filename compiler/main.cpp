@@ -26,6 +26,5 @@ auto main(int argc, char **argv) -> int {
 
     lexer.lexToken(tok);
 
-    llvm::outs() << "Found EOF: " << (tok.kind == ntsc::TokenKind::FileEnd)
-                 << '\n';
+    llvm::outs() << "Token: " << static_cast<int>(tok.kind) << '\n';
 }

@@ -139,6 +139,10 @@ beginLexer:
         tok.set(TokenKind::Comma, line, col++, afterLineTerminator);
         ++ptr;
         return;
+    case ':':
+        tok.set(TokenKind::Colon, line, col++, afterLineTerminator);
+        ++ptr;
+        return;
     case '.':
         // If we encounter only two dots, we must treat it as 2 separate tokens.
         if (ptr[1] == '.' && ptr[2] == '.') {
@@ -158,6 +162,26 @@ beginLexer:
             col += 2;
             return;
         }
+        if (ptr[1] == '<') {
+            if (ptr[2] == '=') {
+                tok.set(TokenKind::LessLessEquals, line, col,
+                        afterLineTerminator);
+                ptr += 3;
+                col += 3;
+                return;
+            }
+
+            tok.set(TokenKind::LessLess, line, col, afterLineTerminator);
+            col += 2;
+            ptr += 2;
+            return;
+        }
+        if (ptr[1] == '/') {
+            tok.set(TokenKind::LessSlash, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
 
         tok.set(TokenKind::Less, line, col++, afterLineTerminator);
         ++ptr;
@@ -165,6 +189,35 @@ beginLexer:
     case '>':
         if (ptr[1] == '=') {
             tok.set(TokenKind::GreaterEquals, line, col, afterLineTerminator);
+            ptr += 2;
+            col += 2;
+            return;
+        }
+        if (ptr[1] == '>') {
+            if (ptr[2] == '>') {
+                if (ptr[3] == '=') {
+                    tok.set(TokenKind::GreaterGreaterGreaterEquals, line, col,
+                            afterLineTerminator);
+                    ptr += 4;
+                    col += 4;
+                    return;
+                }
+
+                tok.set(TokenKind::GreaterGreaterGreater, line, col,
+                        afterLineTerminator);
+                ptr += 3;
+                col += 3;
+                return;
+            }
+            if (ptr[2] == '=') {
+                tok.set(TokenKind::GreaterGreaterEquals, line, col,
+                        afterLineTerminator);
+                ptr += 3;
+                col += 3;
+                return;
+            }
+
+            tok.set(TokenKind::GreaterGreater, line, col, afterLineTerminator);
             ptr += 2;
             col += 2;
             return;
@@ -306,13 +359,119 @@ beginLexer:
             tok.set(TokenKind::Slash, line, col++, afterLineTerminator);
             ++ptr;
             return;
+        case '%':
+            if (ptr[1] == '=') {
+                tok.set(TokenKind::PercentEquals, line, col,
+                        afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+
+            tok.set(TokenKind::Percent, line, col++, afterLineTerminator);
+            ++ptr;
+            return;
+        case '&':
+            if (ptr[1] == '=') {
+                tok.set(TokenKind::AmpersandEquals, line, col,
+                        afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+            if (ptr[1] == '&') {
+                if (ptr[2] == '=') {
+                    tok.set(TokenKind::AmpersandAmpersandEquals, line, col,
+                            afterLineTerminator);
+                    ptr += 3;
+                    col += 3;
+                    return;
+                }
+
+                tok.set(TokenKind::AmpersandAmpersand, line, col,
+                        afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+
+            tok.set(TokenKind::Ampersand, line, col++, afterLineTerminator);
+            ++ptr;
+            return;
+        case '|':
+            if (ptr[1] == '=') {
+                tok.set(TokenKind::BarEquals, line, col, afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+            if (ptr[1] == '|') {
+                if (ptr[2] == '=') {
+                    tok.set(TokenKind::BarBarEquals, line, col,
+                            afterLineTerminator);
+                    ptr += 3;
+                    col += 3;
+                    return;
+                }
+
+                tok.set(TokenKind::BarBar, line, col, afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+
+            tok.set(TokenKind::Bar, line, col++, afterLineTerminator);
+            ++ptr;
+            return;
+        case '^':
+            if (ptr[1] == '=') {
+                tok.set(TokenKind::CaretEquals, line, col, afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+
+            tok.set(TokenKind::Caret, line, col++, afterLineTerminator);
+            ++ptr;
+            return;
+        case '~':
+            tok.set(TokenKind::Tilde, line, col++, afterLineTerminator);
+            ++ptr;
+            return;
+        case '?':
+            if (ptr[1] == '?') {
+                if (ptr[2] == '=') {
+                    tok.set(TokenKind::QuestionQuestionEquals, line, col,
+                            afterLineTerminator);
+                    ptr += 3;
+                    col += 3;
+                    return;
+                }
+
+                tok.set(TokenKind::QuestionQuestion, line, col,
+                        afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+            if (ptr[1] == '.') {
+                tok.set(TokenKind::QuestionDot, line, col, afterLineTerminator);
+                ptr += 2;
+                col += 2;
+                return;
+            }
+
+            tok.set(TokenKind::Question, line, col++, afterLineTerminator);
+            ++col;
+            return;
         }
     }
 }
 
-// This is the implementation of the method to scan single line comments from
-// the source code. If we hit the end of the file, we will return false. If we
-// hit a line terminator and need to keep lexing, we will return true.
+// This is the implementation of the method to scan single line comments
+// from the source code. If we hit the end of the file, we will return
+// false. If we hit a line terminator and need to keep lexing, we will
+// return true.
 auto Lexer::lexSingleLineComment(Token &tok, bool afterLineTerminator) -> bool {
     // First, we must consume the two slash characters.
     ptr += 2;
@@ -347,7 +506,8 @@ auto Lexer::lexSingleLineComment(Token &tok, bool afterLineTerminator) -> bool {
                 ++ptr;
             return true;
         default:
-            // If the current byte is an ASCII character, we can move past it.
+            // If the current byte is an ASCII character, we can move past
+            // it.
             if (isAscii(ptr[0])) {
                 ++ptr;
                 ++col;
@@ -360,8 +520,8 @@ auto Lexer::lexSingleLineComment(Token &tok, bool afterLineTerminator) -> bool {
                 continue;
             }
 
-            // Now that we have obtained the codepoint, we can check if it's a
-            // Unicode Line Terminator.
+            // Now that we have obtained the codepoint, we can check if it's
+            // a Unicode Line Terminator.
             if (isUnicodeLT(cp)) {
                 ++line;
                 col = 1;
@@ -373,11 +533,11 @@ auto Lexer::lexSingleLineComment(Token &tok, bool afterLineTerminator) -> bool {
             ++col;
         }
     }
-}
+} // namespace ntsc
 
-// This is the implementation of the method to scan multi line comments from the
-// source code. In this case, EOF would be an error, but we will still return
-// false to recover. We will return true at the end of the comment.
+// This is the implementation of the method to scan multi line comments from
+// the source code. In this case, EOF would be an error, but we will still
+// return false to recover. We will return true at the end of the comment.
 auto Lexer::lexMultiLineComment(Token &tok, bool &afterLineTerminator) -> bool {
     // First, we need to move the pointer forward to consume the comment
     // opening.
@@ -393,8 +553,8 @@ auto Lexer::lexMultiLineComment(Token &tok, bool &afterLineTerminator) -> bool {
                 col += 2;
                 return true;
             }
-            // If the asterisk is not followed by a slash, we will only consume
-            // the asterisk.
+            // If the asterisk is not followed by a slash, we will only
+            // consume the asterisk.
             ++ptr;
             ++col;
             continue;
@@ -451,16 +611,15 @@ auto Lexer::lexMultiLineComment(Token &tok, bool &afterLineTerminator) -> bool {
                 ++line;
                 col = 1;
                 afterLineTerminator = true;
-                // Since we have already moved  the pointer forward, we can just
-                // continue.
+                // Since we have already moved  the pointer forward, we can
+                // just continue.
                 continue;
             }
 
-            // The Unicode Decoding has moved the pointer, so we only need to
-            // move the column.
+            // The Unicode Decoding has moved the pointer, so we only need
+            // to move the column.
             ++col;
         }
     }
 }
-
 } // namespace ntsc
