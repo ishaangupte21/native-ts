@@ -511,7 +511,8 @@ beginLexer:
     case '0':
         switch (ptr[1]) {
         case '.':
-            lexFloatLiteral(tok, ptr, col, afterLineTerminator);
+            // lexFloatLiteral requires the pointer to be at the floating point
+            lexFloatLiteral(tok, ptr++, col++, afterLineTerminator);
             return;
         // Hex Literal
         case 'x':

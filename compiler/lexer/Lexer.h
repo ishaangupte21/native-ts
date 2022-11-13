@@ -1,7 +1,6 @@
 #ifndef NTSC_LEXER_H
 #define NTSC_LEXER_H
 #include "Token.h"
-#include <cstdint>
 
 /*
     This file defines the Lexer interface for scanning TypeScript source files.
