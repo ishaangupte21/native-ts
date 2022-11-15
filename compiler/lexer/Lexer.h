@@ -78,6 +78,14 @@ class Lexer {
     inline auto lexLegacyOctalLiteral(Token &tok, bool afterLineTerminator)
         -> void;
 
+    // This method will scan double quote string literals.
+    inline auto lexDoubleQuoteStrLiteral(Token &tok, bool afterLineTerminator)
+        -> void;
+
+    // This method will scan single quote string literals.
+    inline auto lexSingleQuoteStrLiteral(Token &tok, bool afterLineTerminator)
+        -> void;
+
     // This method will diagnose errors related to unexpected null characters.
     // Since it will only be used locally in Lexer.cpp, the definition can be
     // done there.

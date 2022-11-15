@@ -86,6 +86,7 @@ enum class TokenKind {
     OctalBigIntLiteral,
     BinaryLiteral,
     BinaryBigIntLiteral,
+    StringLiteral
 };
 
 struct Token {

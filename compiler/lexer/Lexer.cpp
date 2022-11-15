@@ -557,6 +557,15 @@ beginLexer:
             tok.set(TokenKind::ZeroLiteral, line, col, afterLineTerminator);
             return;
         }
+
+    // String literals
+    case '"':
+        lexDoubleQuoteStrLiteral(tok, afterLineTerminator);
+        return;
+
+    case '\'':
+        lexSingleQuoteStrLiteral(tok, afterLineTerminator);
+        return;
     }
 }
 
@@ -1158,6 +1167,94 @@ auto Lexer::lexLegacyOctalLiteral(Token &tok, bool afterLineTerminator)
                 lexerFailed = true;
             }
             return;
+        }
+    }
+}
+
+// This is the implementation of the method to scan double quote string
+// literals. First, we will scan only ascii and if needed, we will switch to
+// unicode.
+auto Lexer::lexDoubleQuoteStrLiteral(Token &tok, bool afterLineTerminator)
+    -> void {
+    // First, we will move the pointer past the quote.
+    // The column should begin at the quote, but the text should not contain the
+    // quote.
+    auto *startPtr = ++ptr;
+    auto startCol = col++;
+
+    // Now, we need to consume all ASCII characters, and if unicode is found, we
+    // should switch to unicode.
+    while (true) {
+        if (ptr[0] == '"') {
+            // End of the double quoted string.
+            tok.set(TokenKind::StringLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+
+            // Consume the quote
+            ++ptr;
+            ++col;
+            return;
+        }
+        // If its ASCII, we can just move forward.
+        if (isAscii(ptr[0])) {
+            ++ptr;
+            ++col;
+            continue;
+        }
+
+        llvm::UTF32 cp;
+        if (decodeUTF8(ptr, endPtr, &cp) != llvm::conversionOK) {
+            // Conversion failure
+            diagnoseInvalidUTF8();
+            // Treat this character like it didn't exist.
+        } else {
+            // Since the decoding function handles the pointer, we just need to
+            // increment the column
+            ++col;
+        }
+    }
+}
+
+// This is the implementation of the method to scan single quote string
+// literals. Similar to double quotes, we will begin with ascii and then do
+// unicode if needed.
+auto Lexer::lexSingleQuoteStrLiteral(Token &tok, bool afterLineTerminator)
+    -> void {
+    // First, we will move the pointer past the quote.
+    // The column should begin at the quote, but the text should not contain the
+    // quote.
+    auto *startPtr = ++ptr;
+    auto startCol = col++;
+
+    // Now, we need to consume all ASCII characters, and if unicode is found, we
+    // should switch to unicode.
+    while (true) {
+        if (ptr[0] == '\'') {
+            // End of the single quoted string.
+            tok.set(TokenKind::StringLiteral, line, startCol,
+                    afterLineTerminator, {startPtr, SIZE_T(ptr - startPtr)});
+
+            // Consume the quote
+            ++ptr;
+            ++col;
+            return;
+        }
+        // If its ASCII, we can just move forward.
+        if (isAscii(ptr[0])) {
+            ++ptr;
+            ++col;
+            continue;
+        }
+
+        llvm::UTF32 cp;
+        if (decodeUTF8(ptr, endPtr, &cp) != llvm::conversionOK) {
+            // Conversion failure
+            diagnoseInvalidUTF8();
+            // Treat this character like it didn't exist.
+        } else {
+            // Since the decoding function handles the pointer, we just need to
+            // increment the column
+            ++col;
         }
     }
 }
